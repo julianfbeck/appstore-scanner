@@ -1,6 +1,7 @@
 import { useParams } from "@remix-run/react";
 import { useState, useEffect } from "react";
 import { json, LoaderFunctionArgs } from "@remix-run/node";
+import { countries } from "~/utils/constants";
 
 interface AppDetails {
   country: string;
@@ -23,73 +24,71 @@ export default function Analyze() {
   const [isLoading, setIsLoading] = useState(true);
   const [usTitle, setUsTitle] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    let eventSource: EventSource | null = null;
-
-    const setupEventSource = () => {
-      if (!appId) return;
-
-      console.log("Setting up EventSource...");
-      eventSource = new EventSource(`/analyze/stream?appId=${appId}`);
-      
-      eventSource.onmessage = (event) => {
-        try {
-          console.log("Received message:", event.data);
-          const data = JSON.parse(event.data);
-          
-          if (data.complete) {
-            console.log("Stream completed");
-            setIsLoading(false);
-            eventSource?.close();
-            return;
-          }
-
-          if (data.error) {
-            console.error("Stream error:", data.error);
-            setError(data.error);
-            return;
-          }
-
-          setResults(prev => {
-            if (data.country === 'us') {
-              setUsTitle(data.title);
-            }
-            const newResults = [...prev, data];
-            console.log("Updated results:", newResults);
-            return newResults;
-          });
-        } catch (err) {
-          console.error('Error parsing SSE data:', err);
+    const fetchCountryData = async (country: string) => {
+      try {
+        const response = await fetch(`/analyze/country?appId=${appId}&country=${country}`);
+        if (response.status === 404) {
+          // App not available in this country, silently skip
+          return null;
         }
-      };
-
-      eventSource.onerror = (event) => {
-        console.error('SSE Error:', event);
-        setError("Connection lost. Please try again.");
-        setIsLoading(false);
-        if (eventSource?.readyState === EventSource.CLOSED) {
-          console.log("Connection closed");
-        } else {
-          console.log("Attempting to reconnect...");
+        if (!response.ok) {
+          throw new Error(`Failed to fetch data for ${country}`);
         }
-      };
-
-      eventSource.onopen = () => {
-        console.log("SSE Connection opened");
-        setIsLoading(true);
-        setError(null);
-      };
+        const data = await response.json();
+        return data;
+      } catch (err) {
+        console.error(`Error fetching ${country}:`, err);
+        return null;
+      }
     };
 
-    setupEventSource();
+    const fetchAllCountries = async () => {
+      if (!appId) return;
+
+      setIsLoading(true);
+      setError(null);
+      setResults([]);
+      setProgress(0);
+
+      const allResults: AppDetails[] = [];
+      let completedCount = 0;
+      let errorCount = 0;
+
+      for (const country of countries) {
+        const result = await fetchCountryData(country);
+        if (result) {
+          allResults.push(result);
+          if (result.country === 'us') {
+            setUsTitle(result.title);
+          }
+        } else {
+          errorCount++;
+        }
+        completedCount++;
+        setProgress(Math.round((completedCount / countries.length) * 100));
+      }
+
+      if (allResults.length === 0) {
+        setError('App not found in any country.');
+      } else if (errorCount > 0) {
+        console.log(`Completed with ${errorCount} countries unavailable`);
+      }
+
+      setResults(allResults);
+      setIsLoading(false);
+    };
+
+    fetchAllCountries().catch(err => {
+      console.error('Failed to fetch data:', err);
+      setError('Failed to fetch app details. Please try again.');
+      setIsLoading(false);
+    });
 
     return () => {
-      if (eventSource) {
-        console.log("Cleaning up EventSource");
-        eventSource.close();
-        setIsLoading(false);
-      }
+      // Cleanup not needed anymore since we're not using EventSource
     };
   }, [appId]);
 
@@ -101,10 +100,15 @@ export default function Analyze() {
             Analyzing App Store Titles
           </h1>
 
-          {isLoading && results.length === 0 && (
+          {isLoading && (
             <div className="flex flex-col items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600"></div>
-              <p className="mt-4 text-gray-600">Scanning app stores...</p>
+              <div className="w-full max-w-xs bg-gray-200 rounded-full h-2.5 mb-4">
+                <div 
+                  className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" 
+                  style={{ width: `${progress}%` }}
+                ></div>
+              </div>
+              <p className="text-gray-600">Scanning app stores... {progress}%</p>
             </div>
           )}
 
@@ -114,15 +118,9 @@ export default function Analyze() {
             </div>
           )}
 
-          {results.length > 0 && (
+          {!isLoading && results.length > 0 && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-gray-900">Results</h2>
-                {isLoading && (
-                  <span className="text-sm text-gray-500">Still scanning...</span>
-                )}
-              </div>
-              
+              <h2 className="text-xl font-semibold text-gray-900">Results</h2>
               <div className="grid gap-4 sm:grid-cols-2">
                 {results
                   .filter(result => result.country !== 'us' && result.title !== usTitle)

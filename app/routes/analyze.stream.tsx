@@ -6,6 +6,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
   console.log("SSE Stream started");
   const url = new URL(request.url);
   const appId = url.searchParams.get("appId");
+  const processedCountriesParam = url.searchParams.get("countries");
+  const processedCountries = processedCountriesParam ? new Set(processedCountriesParam.split(',')) : new Set();
 
   if (!appId || isNaN(parseInt(appId))) {
     console.error("Invalid app ID:", appId);
@@ -28,7 +30,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
     new ReadableStream({
       async start(controller) {
         try {
-          for (const country of countries) {
+          const remainingCountries = countries.filter(country => !processedCountries.has(country));
+          console.log(`Processing ${remainingCountries.length} remaining countries...`);
+
+          for (const country of remainingCountries) {
             try {
               console.log(`Fetching data for ${country}...`);
               const result = await store.app({ 
@@ -56,7 +61,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
               })}\n\n`);
             }
           }
-          // Send a completion message
+          
           controller.enqueue(`data: ${JSON.stringify({ complete: true })}\n\n`);
           console.log(`Stream completed. Sent ${messageCount} messages.`);
           controller.close();
