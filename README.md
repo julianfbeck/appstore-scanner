@@ -1,40 +1,16 @@
-# Welcome to Remix!
+# App Store Scanner
 
-- 📖 [Remix docs](https://remix.run/docs)
+[App Store Scanner](https://appscanner.juli.sh) helps you discover how apps are titled differently across App Store regions worldwide.
 
-## Development
+## What it does
 
-Run the dev server:
+1. **Search**: Find any app available on the App Store
+2. **Analyze**: Select an app to scan its details across all global App Store regions
+3. **Compare**: See how the app's title and subtitle differ between countries in real-time
 
-```shellscript
-npm run dev
-```
+Perfect for:
+- App developers checking their localization
+- Marketers researching regional app naming strategies
+- Anyone curious about how apps are presented in different markets
 
-## Deployment
-
-First, build your app for production:
-
-```sh
-npm run build
-```
-
-Then run the app in production mode:
-
-```sh
-npm start
-```
-
-Now you'll need to pick a host to deploy it to.
-
-### DIY
-
-If you're familiar with deploying Node applications, the built-in Remix app server is production-ready.
-
-Make sure to deploy the output of `npm run build`
-
-- `build/server`
-- `build/client`
-
-## Styling
-
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever css framework you prefer. See the [Vite docs on css](https://vitejs.dev/guide/features.html#css) for more information.
+Try it now at [appscanner.juli.sh](https://appscanner.juli.sh)
